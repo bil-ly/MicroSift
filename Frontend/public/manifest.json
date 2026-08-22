@@ -1,0 +1,9 @@
+{
+  "name": "MicroSift",
+  "short_name": "MicroSift",
+  "display": "standalone",
+  "start_url": "/live",
+  "background_color": "#0E1418",
+  "theme_color": "#0E1418",
+  "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+}
