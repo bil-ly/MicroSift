@@ -1,5 +1,24 @@
 # MicroSift backend
 
+## PostgreSQL container
+
+Copy the example environment file and replace the placeholder local password:
+
+```bash
+cp .env.example .env
+podman compose up -d postgres
+```
+
+Wait until the container is healthy, then set `DATABASE_URL` using the values
+from `.env`:
+
+```bash
+postgresql+psycopg://<POSTGRES_USER>:<POSTGRES_PASSWORD>@localhost:<POSTGRES_PORT>/<POSTGRES_DB>
+```
+
+Stop the database with `podman compose down`. Add `-v` only when you intend to
+delete the local PostgreSQL data volume.
+
 ## Run locally
 
 Set `DATABASE_URL`, `AUTH_JWT_SECRET`, and `AUTH_ENCRYPTION_KEY` in your shell,
