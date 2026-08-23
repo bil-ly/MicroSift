@@ -2,7 +2,9 @@
 
 ## PostgreSQL container
 
-Copy the example environment file and replace the placeholder local password:
+The complete Podman setup and lifecycle guide is in `../docs/podman.md`.
+From the repository root, copy the example environment file and replace the
+placeholder local password:
 
 ```bash
 cp .env.example .env

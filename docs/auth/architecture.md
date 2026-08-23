@@ -81,6 +81,9 @@ Configuration is read from environment variables. Do not commit values.
 Missing required secrets fail application startup. Development and production
 must use different values for every secret.
 
+For the local PostgreSQL container, startup commands, and data-reset procedure,
+see `../podman.md`.
+
 ## Exclusions
 
 Two-factor authentication is not exposed: the library needs a configured
