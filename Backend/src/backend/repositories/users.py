@@ -1,7 +1,7 @@
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..db.models import User
@@ -23,7 +23,7 @@ class UserRepository:
             "created_at": user.created_at,
         }
 
-    async def _get_user(self, statement: object) -> dict[str, Any] | None:
+    async def _get_user(self, statement: Select[tuple[User]]) -> dict[str, Any] | None:
         result = await self.session.execute(statement)
         user = result.scalar_one_or_none()
         return self._to_dict(user) if user else None

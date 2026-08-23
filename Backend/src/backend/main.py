@@ -14,7 +14,7 @@ def create_app(
 ) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        runtime_settings = settings or Settings()
+        runtime_settings = settings or Settings()  # type: ignore[call-arg]
         app.state.settings = runtime_settings
         engine = create_engine(runtime_settings.database_url)
         app.state.engine = engine

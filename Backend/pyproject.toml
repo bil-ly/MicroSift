@@ -26,6 +26,10 @@ build-backend = "uv_build"
 [tool.uv.sources]
 fastapi-auth-lib = { git = "ssh://git@github.com/bil-ly/python_auth_lib.git", tag = "v0.1.0" }
 
+[[tool.mypy.overrides]]
+module = ["auth_lib", "auth_lib.*"]
+ignore_missing_imports = true
+
 [dependency-groups]
 dev = [
     "httpx>=0.28.1",
