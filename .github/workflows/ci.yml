@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      # must precede uv sync — that is when the git dependency resolves
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AUTH_LIB_DEPLOY_KEY }}
+
+      # checkout must precede setup-uv; the reverse is unsupported
+      - uses: actions/checkout@v5
+
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+          working-directory: Backend
+
+      - name: Install
+        working-directory: Backend
+        run: uv sync --locked --all-extras --dev
+
+      - name: Lint
+        working-directory: Backend
+        run: uv run ruff check .
+
+      - name: Format
+        working-directory: Backend
+        run: uv run ruff format --check .
+
+      - name: Types
+        working-directory: Backend
+        run: uv run mypy src
+
+      - name: Test
+        working-directory: Backend
+        run: uv run pytest
