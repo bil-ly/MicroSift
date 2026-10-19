@@ -47,13 +47,30 @@ services:
     container_name: microsift-frontend
     restart: unless-stopped
     working_dir: /app
-    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    command: sh -c "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0"
     volumes:
       - ./Frontend:/app
       - frontend-node-modules:/app/node_modules
     ports:
       - "127.0.0.1:5173:5173"
 
+  backend:
+    image: ghcr.io/astral-sh/uv:python3.14-trixie-slim
+    container_name: microsift-backend
+    restart: unless-stopped
+    working_dir: /app
+    command: sh -c "uv sync && uv run --no-sync uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload"
+    environment:
+      KEYCLOAK_ISSUER: http://localhost:8080/realms/microsift
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/microsift/protocol/openid-connect/certs
+      KEYCLOAK_AUDIENCE: microsift-api
+    volumes:
+      - ./Backend:/app
+      - backend-venv:/app/.venv
+    ports:
+      - "127.0.0.1:8000:8000"
+
 volumes:
   microsift-postgres-data:
   frontend-node-modules:
+  backend-venv:

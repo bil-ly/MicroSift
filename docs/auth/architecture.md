@@ -1,93 +1,53 @@
-# Authentication architecture
+# Authentication with Keycloak
 
-## Scope
+Keycloak manages accounts and email verification in PostgreSQL. The React
+frontend uses Authorization Code with PKCE through `keycloak-js`; it never
+receives passwords. FastAPI validates access tokens against Keycloak's signing
+keys, checks the issuer and audience, and enforces the realm role `approved`.
 
-MicroSift exposes a PostgreSQL-backed FastAPI authentication API under
-`/api/v1/auth`. It uses `fastapi-auth-lib` for password hashing, password
-strength validation, JWT creation and verification, and password-reset token
-handling. The application owns its HTTP routes, configuration, and PostgreSQL
-adapter.
+## Configure the local realm
 
-The current frontend demo login is separate from this API. It does not call
-these endpoints and must not be treated as real authentication.
+1. Open <http://localhost:8080/admin/> and sign in as `admin` using the value
+   of `KEYCLOAK_ADMIN_PASSWORD` from your local `.env`.
+2. Create the realm `microsift` if it does not already exist. Select it in the
+   realm dropdown; do not configure application users in `master`.
+3. In Realm settings → Login, enable User registration and Verify email.
+4. In Realm settings → Email, set From to `noreply@microsift.local`, Host to
+   `mailpit`, Port to `1025`, and leave authentication, SSL and StartTLS off
+   for local development. Test the SMTP connection. View emails at
+   <http://localhost:8025>.
+5. Create a realm role named `approved`. Do not assign it as a default role.
+6. Under Clients, create an OpenID Connect client `microsift-frontend` with
+   Client authentication **Off** (a public browser client), Standard flow
+   **On**, and Direct access grants and Implicit flow **Off**. Set Valid
+   redirect URIs to `http://localhost:5173/*` and Web origins to
+   `http://localhost:5173`.
+7. In this client's dedicated client scope, add an **Audience** protocol
+   mapper. Set Included Custom Audience to `microsift-api` and include it in
+   the access token. This makes the access token's `aud` claim match the API.
+   Keep the default `roles` scope so realm roles appear under
+   `realm_access.roles`.
 
-## Endpoints
+## Request flow
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/v1/auth/register` | Create a user with a unique username and email. |
-| `POST` | `/api/v1/auth/login` | Verify credentials and return a Bearer access token. |
-| `GET` | `/api/v1/auth/me` | Return the authenticated user's public profile. |
-| `POST` | `/api/v1/auth/password-reset/request` | Create a one-hour password-reset token for an existing email. |
-| `POST` | `/api/v1/auth/password-reset/confirm` | Replace a password using a valid password-reset token. |
+1. The browser redirects to Keycloak for registration or sign-in. Keycloak
+   emails a verification link through Mailpit and issues tokens after its
+   required actions are complete.
+2. The frontend obtains an access token with the authorization-code flow and
+   calls `/api/me` through Vite's `/api` proxy.
+3. FastAPI fetches Keycloak's public keys from the internal `keycloak` service.
+   It validates the token's signature, expiry, issuer
+   `http://localhost:8080/realms/microsift`, and audience `microsift-api`.
+4. `/api/me` returns `pending` until the user has the `approved` realm role.
+   The dashboard keeps its content hidden during this state.
+5. An admin assigns `approved` to the verified user in Users → Role mapping.
+   The user signs out and back in to obtain a token with the new role.
+6. `/api/approved` returns `403` for a valid token without the role and `200`
+   for a valid approved token. Protected market endpoints must use the same
+   backend role check. `/api/health` remains public.
 
-`/me` requires an `Authorization: Bearer <access-token>` header. Password
-hashes, reset tokens, and configuration secrets are never returned in API
-responses.
-
-## Request and response contracts
-
-- `POST /register` accepts `username`, `email`, and `password`; returns `201`
-  with `id`, `username`, `email`, `is_active`, and `created_at`.
-- `POST /login` accepts `username`, `password`, and optional `totp_code`;
-  returns `200` with `access_token` and `token_type`.
-- `GET /me` accepts a Bearer access token and returns `200` with the public
-  user profile.
-- `POST /password-reset/request` accepts `email`. It returns `404` for an
-  unknown email. In development it also returns a `reset_token`; production
-  returns only a confirmation message.
-- `POST /password-reset/confirm` accepts `token` and `new_password`, and
-  returns `200` after a valid reset.
-
-Duplicate usernames or emails return `400`; invalid credentials or tokens
-return `401`; weak replacement passwords return `400`.
-
-## Storage model
-
-The PostgreSQL `users` table stores an application-generated UUID, username,
-email, bcrypt password hash, active flag, and timestamps. Username and email
-are unique. The database adapter implements the library's async
-`DatabaseInterface`; routes do not execute user SQL directly.
-
-The initial implementation creates the table at startup. Production schema
-changes should move to versioned migrations before the schema evolves.
-
-## Authentication flow
-
-1. Registration validates password strength in `fastapi-auth-lib`, hashes the
-   password with bcrypt, and stores the new user.
-2. Login checks the username and bcrypt hash. A successful login returns a
-   signed JWT containing the user UUID in `sub`.
-3. Protected requests submit the JWT as a Bearer token. The application
-   verifies it through the library, then loads the active user from PostgreSQL.
-4. A password-reset request creates a short-lived JWT whose type is
-   `password_reset`. The confirm endpoint accepts that token and a new strong
-   password; the library validates the token and updates the bcrypt hash.
-
-## Configuration
-
-Configuration is read from environment variables. Do not commit values.
-
-| Variable | Purpose |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection URL. |
-| `APP_ENVIRONMENT` | `development` or `production`; defaults to `development`. |
-| `AUTH_JWT_SECRET` | Secret used to sign access and reset JWTs. |
-| `AUTH_ENCRYPTION_KEY` | Encryption key required by the library. |
-| `AUTH_JWT_EXPIRES_MINUTES` | Access-token lifetime; defaults to 60. |
-| `AUTH_MIN_PASSWORD_ENTROPY` | Minimum password entropy; defaults to 60. |
-| `AUTH_CORS_ORIGINS` | Comma-separated browser origins allowed to call the API. |
-
-Missing required secrets fail application startup. Development and production
-must use different values for every secret.
-
-For the local PostgreSQL container, startup commands, and data-reset procedure,
-see `../podman.md`.
-
-## Exclusions
-
-Two-factor authentication is not exposed: the library needs a configured
-Redis-backed two-factor service, and this project does not configure Redis.
-Email delivery is also not configured. Password-reset requests return a token
-only for local development; production must connect an email provider and stop
-returning reset tokens in responses.
+The Vite proxy is for local development. The browser uses the public
+`localhost:8080` Keycloak address; the backend retrieves signing keys through
+the Compose service name `keycloak`. A real SMTP provider replaces Mailpit
+when deployed. The credentials, external URL, and redirect origins must be
+configured for the deployed environment.

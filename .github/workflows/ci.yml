@@ -83,8 +83,11 @@ jobs:
       - name: Install package
         run: uv sync --locked
 
-      - name: Smoke test entry point
-        run: uv run backend
+      - name: Smoke test API
+        run: uv run python -c "from backend.api import app; assert any(route.path == '/api/health' for route in app.routes)"
+
+      - name: Test authentication
+        run: uv run python -m unittest discover -s tests
 
       - name: Build package
         run: uv build

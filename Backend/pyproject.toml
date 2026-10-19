@@ -1,13 +1,10 @@
 [project]
 name = "backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "MicroSift API"
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
-
-[project.scripts]
-backend = "backend:main"
+dependencies = ["fastapi>=0.115,<1", "uvicorn>=0.34,<1", "PyJWT[crypto]>=2.10,<3"]
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]

@@ -1,47 +1,69 @@
-import { fireEvent, render, screen } from '@testing-library/react'
-import { beforeEach, expect, test } from 'vitest'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { afterEach, beforeEach, expect, test, vi } from 'vitest'
+import { accessToken, initializeAuth, keycloak } from './auth'
 import App from './App'
 
+vi.mock('./auth', () => ({
+  initializeAuth: vi.fn(),
+  accessToken: vi.fn(),
+  keycloak: { login: vi.fn(), register: vi.fn(), logout: vi.fn() },
+}))
+
 beforeEach(() => {
+  vi.clearAllMocks()
   window.history.pushState({}, '', '/')
+  vi.mocked(initializeAuth).mockResolvedValue(false)
+  vi.mocked(accessToken).mockResolvedValue('signed-access-token')
+  vi.stubGlobal('fetch', vi.fn())
 })
 
-test('shows the Home screen at the root route', () => {
+afterEach(() => vi.unstubAllGlobals())
+
+test('shows the home screen', async () => {
   render(<App />)
-
-  expect(screen.getByRole('heading', { name: 'MicroSift' })).toBeInTheDocument()
-  expect(screen.getAllByRole('link', { name: 'Log in' })).toHaveLength(2)
-  screen.getAllByRole('link', { name: 'Log in' }).forEach((link) => {
-    expect(link).toHaveAttribute('href', '/login')
-  })
+  expect(await screen.findByRole('heading', { name: 'MicroSift' })).toBeInTheDocument()
 })
 
-test('logs in with the demo credentials and opens the dashboard', () => {
+test('sends login and registration to Keycloak without collecting passwords', async () => {
   window.history.pushState({}, '', '/login')
   render(<App />)
-
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'test@test.com' } })
-  fireEvent.change(screen.getByLabelText('Password'), { target: { value: '12345' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
-
-  expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
+  fireEvent.click(await screen.findByRole('button', { name: 'Continue with Keycloak' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Create account' }))
+  expect(keycloak.login).toHaveBeenCalled()
+  expect(keycloak.register).toHaveBeenCalled()
+  expect(screen.queryByLabelText('Password')).not.toBeInTheDocument()
 })
 
-test('shows an empty dashboard shell at the dashboard route', () => {
+test('does not expose the dashboard to an unauthenticated user', async () => {
   window.history.pushState({}, '', '/dashboard')
   render(<App />)
-
-  expect(screen.getByRole('heading', { name: 'Dashboard' })).toBeInTheDocument()
-  expect(screen.getAllByText('No data yet.')).toHaveLength(3)
+  expect(await screen.findByRole('heading', { name: 'Log in' })).toBeInTheDocument()
+  expect(fetch).not.toHaveBeenCalled()
 })
 
-test('rejects invalid demo credentials', () => {
-  window.history.pushState({}, '', '/login')
+test('shows pending status without dashboard data', async () => {
+  vi.mocked(initializeAuth).mockResolvedValue(true)
+  vi.mocked(fetch).mockResolvedValue({
+    ok: true,
+    json: async () => ({ username: 'alice', approval: 'pending' }),
+  } as Response)
+  window.history.pushState({}, '', '/dashboard')
   render(<App />)
+  expect(await screen.findByText('Email verified. Awaiting admin approval.')).toBeInTheDocument()
+  expect(screen.queryByText('No data yet.')).not.toBeInTheDocument()
+  expect(fetch).toHaveBeenCalledWith('/api/me', expect.objectContaining({
+    headers: { Authorization: 'Bearer signed-access-token' },
+  }))
+})
 
-  fireEvent.change(screen.getByLabelText('Email'), { target: { value: 'wrong@example.com' } })
-  fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'wrong' } })
-  fireEvent.click(screen.getByRole('button', { name: 'Log in' }))
-
-  expect(screen.getByRole('alert')).toHaveTextContent('Invalid email or password.')
+test('shows dashboard data only after the backend confirms approval', async () => {
+  vi.mocked(initializeAuth).mockResolvedValue(true)
+  vi.mocked(fetch).mockResolvedValue({
+    ok: true,
+    json: async () => ({ username: 'alice', approval: 'approved' }),
+  } as Response)
+  window.history.pushState({}, '', '/dashboard')
+  render(<App />)
+  await waitFor(() => expect(screen.getAllByText('No data yet.')).toHaveLength(3))
+  expect(screen.getByRole('status')).toHaveTextContent('Signed in as alice')
 })

@@ -20,3 +20,11 @@ tasks:
     desc: Follow all service logs
     cmds:
       - docker compose logs -f
+
+  check:
+    desc: Run backend and frontend checks inside containers
+    cmds:
+      - docker compose exec -T backend uv run python -m unittest discover -s tests
+      - docker compose exec -T frontend npm run lint
+      - docker compose exec -T frontend npm test -- --run
+      - docker compose exec -T frontend npm run build

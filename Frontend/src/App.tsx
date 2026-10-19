@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import { accessToken, initializeAuth, keycloak } from './auth'
 import './App.css'
 
-const demoEmail = 'test@test.com'
-const demoPassword = '12345'
+type Approval = 'checking' | 'pending' | 'approved' | 'error'
 
 function App() {
   const [path, setPath] = useState(window.location.pathname)
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
+  const [authenticated, setAuthenticated] = useState(false)
+  const [authReady, setAuthReady] = useState(false)
+  const [authError, setAuthError] = useState('')
+  const [approval, setApproval] = useState<Approval>('checking')
+  const [username, setUsername] = useState('')
 
   useEffect(() => {
     const onPopState = () => setPath(window.location.pathname)
@@ -17,36 +18,70 @@ function App() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [])
 
+  useEffect(() => {
+    let active = true
+    initializeAuth()
+      .then((signedIn) => {
+        if (active) {
+          setAuthenticated(signedIn)
+          setAuthReady(true)
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setAuthError('Could not connect to Keycloak. Check the realm and client settings.')
+          setAuthReady(true)
+        }
+      })
+    return () => { active = false }
+  }, [])
+
+  useEffect(() => {
+    if (path !== '/dashboard' || !authenticated) return
+    const controller = new AbortController()
+
+    const loadProfile = async () => {
+      try {
+        const token = await accessToken()
+        const response = await fetch('/api/me', {
+          headers: { Authorization: `Bearer ${token}` },
+          signal: controller.signal,
+        })
+        if (!response.ok) throw new Error(`API returned ${response.status}`)
+        const profile: { username: string; approval: 'pending' | 'approved' } = await response.json()
+        if (!controller.signal.aborted) {
+          setUsername(profile.username)
+          setApproval(profile.approval)
+        }
+      } catch {
+        if (!controller.signal.aborted) setApproval('error')
+      }
+    }
+
+    void loadProfile()
+    return () => controller.abort()
+  }, [path, authenticated])
+
   const navigate = (nextPath: '/' | '/login' | '/dashboard') => {
     window.history.pushState({}, '', nextPath)
     setPath(nextPath)
   }
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    if (email === demoEmail && password === demoPassword) {
-      setError('')
-      navigate('/dashboard')
-      return
-    }
-    setError('Invalid email or password.')
-  }
+  const login = () => void keycloak.login({ redirectUri: `${window.location.origin}/dashboard` })
+  const register = () => void keycloak.register({ redirectUri: `${window.location.origin}/dashboard` })
+  const logout = () => void keycloak.logout({ redirectUri: window.location.origin })
 
-  if (path === '/login') {
+  if (!authReady) return <main className="auth-page"><p role="status">Checking sign-in…</p></main>
+
+  if (path === '/login' || (path === '/dashboard' && !authenticated)) {
     return <main className="auth-page">
       <section className="auth-card" aria-labelledby="login-heading">
         <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate('/') }}>MicroSift</a>
         <h1 id="login-heading">Log in</h1>
-        <p>Use the demo account to access the app.</p>
-        <form onSubmit={handleLogin}>
-          <label htmlFor="email">Email</label>
-          <input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
-          <label htmlFor="password">Password</label>
-          <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required />
-          {error && <p className="form-error" role="alert">{error}</p>}
-          <button type="submit">Log in</button>
-        </form>
-        <small>Demo: test@test.com / 12345</small>
+        <p>Sign in through Keycloak to access MicroSift.</p>
+        {authError && <p className="form-error" role="alert">{authError}</p>}
+        <button type="button" onClick={login} disabled={!!authError}>Continue with Keycloak</button>
+        <button type="button" onClick={register} disabled={!!authError}>Create account</button>
       </section>
     </main>
   }
@@ -56,14 +91,21 @@ function App() {
       <aside className="dashboard-sidebar">
         <a className="brand" href="/" onClick={(event) => { event.preventDefault(); navigate('/') }}>MicroSift</a>
         <nav aria-label="Dashboard navigation"><span className="active-nav">Dashboard</span><span>Workspace</span></nav>
+        <button type="button" onClick={logout}>Log out</button>
       </aside>
       <section className="dashboard-content">
         <header><p className="eyebrow">OVERVIEW</p><h1>Dashboard</h1></header>
-        <div className="empty-grid">
-          <section className="empty-panel"><p>No data yet.</p></section>
-          <section className="empty-panel"><p>No data yet.</p></section>
-          <section className="empty-panel empty-panel-wide"><p>No data yet.</p></section>
-        </div>
+        {approval === 'checking' && <p role="status">Checking approval…</p>}
+        {approval === 'pending' && <p role="status">Email verified. Awaiting admin approval.</p>}
+        {approval === 'error' && <p role="alert">Could not verify access. Try signing in again.</p>}
+        {approval === 'approved' && <>
+          <p role="status">Signed in as {username}. API connected.</p>
+          <div className="empty-grid">
+            <section className="empty-panel"><p>No data yet.</p></section>
+            <section className="empty-panel"><p>No data yet.</p></section>
+            <section className="empty-panel empty-panel-wide"><p>No data yet.</p></section>
+          </div>
+        </>}
       </section>
     </main>
   }

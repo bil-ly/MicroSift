@@ -5,7 +5,8 @@ repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root/Backend"
 
 uv sync --locked
-uv run backend
+uv run python -c "from backend.api import app; assert any(route.path == '/api/health' for route in app.routes)"
+uv run python -m unittest discover -s tests
 uv build
 
 cd "$repo_root/Frontend"
