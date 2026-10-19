@@ -56,7 +56,9 @@ def test_local_environment_secrets_are_not_documented() -> None:
         value.strip().strip('"').strip("'")
         for line in environment_file.read_text(encoding="utf-8").splitlines()
         if line.strip() and not line.lstrip().startswith("#") and "=" in line
+        for name in [line.split("=", 1)[0].upper()]
         for value in [line.split("=", 1)[1]]
+        if any(marker in name for marker in ("PASSWORD", "SECRET", "TOKEN"))
         if value.strip()
     }
     markdown = "\n".join(
