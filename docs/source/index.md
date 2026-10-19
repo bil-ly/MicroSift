@@ -12,6 +12,7 @@ entrypoint, while Keycloak handles identity and access management.
 ```{toctree}
 :maxdepth: 2
 :caption: MicroSift
+:hidden:
 
 getting-started
 architecture/overview
