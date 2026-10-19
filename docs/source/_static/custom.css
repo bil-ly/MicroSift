@@ -1,0 +1,16 @@
+.content img {
+  display: block;
+  height: auto;
+  max-width: 100%;
+}
+
+.content a.image-reference {
+  display: block;
+  overflow-x: auto;
+}
+
+.content figcaption {
+  color: var(--color-foreground-muted);
+  font-size: 0.9rem;
+  margin-top: 0.75rem;
+}
