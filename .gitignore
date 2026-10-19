@@ -9,3 +9,6 @@ __pycache__/
 docs/superpowers/
 docs/.pytest_cache/
 DAC/
+
+/docs/build/
+/docs/.venv/
