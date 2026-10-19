@@ -2,12 +2,12 @@ version: '3'
 
 tasks:
   up:
-    desc: Start local services
+    desc: Start all local services
     cmds:
       - docker compose up -d
 
   down:
-    desc: Stop local services without deleting data
+    desc: Stop all local services without deleting data
     cmds:
       - docker compose down
 
@@ -17,6 +17,6 @@ tasks:
       - docker compose ps
 
   logs:
-    desc: Follow Keycloak logs
+    desc: Follow all service logs
     cmds:
-      - docker compose logs -f keycloak
+      - docker compose logs -f
