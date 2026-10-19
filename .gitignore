@@ -12,3 +12,10 @@ DAC/
 
 /docs/build/
 /docs/.venv/
+
+#keyclaok
+/KeycloakTheme/node_modules/
+/KeycloakTheme/dist/
+/KeycloakTheme/dist_keycloak/
+/KeycloakTheme/.env
+/KeycloakTheme/.env.*
