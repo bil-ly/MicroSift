@@ -4,7 +4,13 @@ set -eu
 repo_root=$(git rev-parse --show-toplevel)
 cd "$repo_root/Backend"
 
-uv run ruff check .
-uv run ruff format --check .
-uv run mypy src
-uv run pytest
+uv sync --locked
+uv run backend
+uv build
+
+cd "$repo_root/Frontend"
+
+npm ci
+npm run lint
+npm test -- --run
+npm run build

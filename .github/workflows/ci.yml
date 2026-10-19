@@ -5,16 +5,71 @@ on:
     branches: [main]
   pull_request:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  backend:
+  repository:
+    name: Repository hygiene
     runs-on: ubuntu-latest
     steps:
-      # must precede uv sync — that is when the git dependency resolves
-      - uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.AUTH_LIB_DEPLOY_KEY }}
+      - uses: actions/checkout@v5
 
-      # checkout must precede setup-uv; the reverse is unsupported
+      - name: Check ignored local and generated files
+        run: |
+          ignored_tracked_files=$(git ls-files -ci --exclude-standard)
+          if [ -n "$ignored_tracked_files" ]; then
+            echo "Tracked files must not match .gitignore:"
+            echo "$ignored_tracked_files"
+            exit 1
+          fi
+          git check-ignore -q --no-index .env
+          git check-ignore -q --no-index .idea/workspace.xml
+          git check-ignore -q --no-index Backend/.venv/
+          git check-ignore -q --no-index Backend/dist/
+          git check-ignore -q --no-index Frontend/node_modules/
+          git check-ignore -q --no-index Frontend/dist/
+          git check-ignore -q --no-index Infrastructure/terraform/.terraform/
+          git check-ignore -q --no-index Infrastructure/terraform/terraform.tfstate
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Frontend
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test -- --run
+
+      - name: Build
+        run: npm run build
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Backend
+    steps:
       - uses: actions/checkout@v5
 
       - uses: astral-sh/setup-uv@v10.0.1
@@ -22,22 +77,26 @@ jobs:
           enable-cache: true
           working-directory: Backend
 
-      - name: Install
-        working-directory: Backend
-        run: uv sync --locked --all-extras --dev
+      - name: Install Python
+        run: uv python install 3.14
 
-      - name: Lint
-        working-directory: Backend
-        run: uv run ruff check .
+      - name: Install package
+        run: uv sync --locked
 
-      - name: Format
-        working-directory: Backend
-        run: uv run ruff format --check .
+      - name: Smoke test entry point
+        run: uv run backend
 
-      - name: Types
-        working-directory: Backend
-        run: uv run mypy src
+      - name: Build package
+        run: uv build
 
-      - name: Test
-        working-directory: Backend
-        run: uv run pytest
+  compose:
+    name: Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate Compose configuration
+        env:
+          POSTGRES_PASSWORD: ci-only-postgres-password
+          KEYCLOAK_ADMIN_PASSWORD: ci-only-keycloak-password
+        run: docker compose config --quiet
