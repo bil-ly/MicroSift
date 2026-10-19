@@ -23,6 +23,17 @@ REQUIRED_PAGES = (
     "operations/troubleshooting.md",
 )
 
+EXPECTED_DIAGRAMS = (
+    "high-level/01-registration.png",
+    "high-level/02-admin-approval.png",
+    "high-level/03-login-and-access.png",
+    "detailed/01-opening.png",
+    "detailed/02-registration.png",
+    "detailed/03-login.png",
+    "detailed/04-dashboard.png",
+    "detailed/06-api-outcomes-logout.png",
+)
+
 
 def source_path(relative: str) -> Path:
     return SOURCE_ROOT / relative
@@ -67,3 +78,15 @@ def test_local_environment_secrets_are_not_documented() -> None:
 
     leaked = sorted(value for value in secret_values if value in markdown)
     assert leaked == []
+
+
+def test_expected_diagram_assets_are_packaged() -> None:
+    diagram_root = source_path("_static/diagrams")
+    missing = [
+        relative
+        for relative in EXPECTED_DIAGRAMS
+        if not (diagram_root / relative).is_file()
+        or (diagram_root / relative).stat().st_size == 0
+    ]
+
+    assert missing == []
