@@ -1,7 +1,7 @@
 # MicroSift
 
-MicroSift is a React application with a FastAPI backend. PostgreSQL, Keycloak,
-and Mailpit run locally alongside it.
+MicroSift is a React application with a FastAPI backend. Traefik routes local
+traffic to the app, API, and Keycloak. PostgreSQL and Mailpit run alongside it.
 
 ## Prerequisites
 
@@ -25,28 +25,35 @@ go-task up
 
 ## First-time Keycloak setup
 
-Keycloak starts with only the `master` realm. Before using the app's login or
-signup buttons, open <http://localhost:8080/admin/> and sign in as `admin`
-with `KEYCLOAK_ADMIN_PASSWORD` from `.env`.
+Open <http://auth.localhost:8088/admin/> and sign in as `admin` with the value
+of `KEYCLOAK_ADMIN_PASSWORD` in `.env`. The admin console often opens in the
+`master` realm. Use the **Current realm** selector at the top left to select
+`microsift`. If it does not exist yet, choose **Create realm** and name it
+exactly `microsift`. Keep `microsift` selected for every step below. The
+`microsift-realm` client visible in `master` is not the frontend client.
 
-1. In the realm dropdown, select **Create realm** and name it exactly
-   `microsift`. Make sure the `microsift` realm is selected for the remaining
-   steps. A missing realm makes the app's login redirect show **Page not found**.
-2. Go to **Clients → Create client**. Choose **OpenID Connect**, set Client ID
-   to `microsift-frontend`, set Client authentication **Off**, and keep Standard
-   flow **On**. Set Valid redirect URIs to `http://localhost:5173/*` and Web
-   origins to `http://localhost:5173`.
+1. Go to **Clients** in the `microsift` realm. If `microsift-frontend` already
+   exists, open it and select **Settings**. Otherwise choose **Create client**,
+   select **OpenID Connect**, set Client ID to `microsift-frontend`, set Client
+   authentication **Off**, and keep Standard flow **On**.
+2. In the client's **Settings**, set Valid redirect URIs to
+   `http://app.localhost:8088/*` and Web origins to
+   `http://app.localhost:8088`. Click **Save**. Remove the previous
+   `http://localhost:5173/*` redirect and `http://localhost:5173` origin if
+   this client existed before Traefik. An old redirect causes **Invalid
+   parameter: redirect_uri** during login.
 3. Go to **Realm settings → Login** and enable **User registration** and
    **Verify email**.
 4. Go to **Realm settings → Email**. Set From to
    `noreply@microsift.local`, SMTP host to `mailpit`, and port to `1025`.
    Leave authentication, SSL, and StartTLS off; save and test the connection.
-5. Go to **Realm roles** and create `approved`. Do not make it a default role.
+5. Go to **Realm roles** and create `approved` if it does not already exist.
+   Do not make it a default role.
 6. In the `microsift-frontend` client's dedicated client scope, add an
    **Audience** mapper with Included Custom Audience `microsift-api` and
    **Add to access token** enabled. Keep the default `roles` scope.
 
-Now open <http://localhost:5173>, register a user, and open the verification
+Now open <http://app.localhost:8088>, register a user, and open the verification
 message at <http://localhost:8025>. The user remains pending until an admin
 assigns the `approved` realm role under **Users → Role mapping**. Sign out and
 back in after approval to obtain a token with the new role.
@@ -56,13 +63,13 @@ For the full authentication flow, see
 
 The local service interfaces are available at:
 
-- Keycloak: <http://localhost:8080> (username `admin`; password from
+- Keycloak: <http://auth.localhost:8088> (username `admin`; password from
   `KEYCLOAK_ADMIN_PASSWORD` in `.env`)
 - Mailpit: <http://localhost:8025>
-- FastAPI: <http://localhost:8000/api/health>
+- FastAPI: <http://app.localhost:8088/api/health>
 - PostgreSQL: `localhost:5432` by default
 
-Vite proxies `/api` requests to FastAPI. `/api/health` is public; `/api/me`
+Traefik routes `/api` requests to FastAPI. `/api/health` is public; `/api/me`
 requires a valid Keycloak token and `/api/approved` additionally requires the
 `approved` realm role. On the first startup the containers resolve dependencies
 and update `Frontend/package-lock.json` and `Backend/uv.lock`; commit those
@@ -81,3 +88,6 @@ go-task check   # Run backend and frontend checks
 
 `go-task up` starts the containers in the background. `go-task down` stops
 them without deleting data volumes.
+
+Existing users, realm roles, and Mailpit SMTP settings remain in PostgreSQL
+when you add Traefik.

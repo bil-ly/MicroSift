@@ -1,4 +1,17 @@
 services:
+  traefik:
+    image: traefik:v3.5
+    container_name: microsift-traefik
+    restart: unless-stopped
+    command:
+      - --entrypoints.web.address=:80
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+    ports:
+      - "127.0.0.1:8088:80"
+    volumes:
+      - ./Infrastructure/traefik:/etc/traefik/dynamic:ro
+
   postgres:
     image: postgres:16-alpine
     container_name: microsift-postgres
@@ -29,8 +42,8 @@ services:
       KC_DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-microsift}
       KC_DB_USERNAME: ${POSTGRES_USER:-microsift}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    ports:
-      - "127.0.0.1:8080:8080"
+      KC_HOSTNAME: http://auth.localhost:8088
+      KC_PROXY_HEADERS: xforwarded
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,8 +64,8 @@ services:
     volumes:
       - ./Frontend:/app
       - frontend-node-modules:/app/node_modules
-    ports:
-      - "127.0.0.1:5173:5173"
+    environment:
+      VITE_KEYCLOAK_URL: http://auth.localhost:8088
 
   backend:
     image: ghcr.io/astral-sh/uv:python3.14-trixie-slim
@@ -61,14 +74,12 @@ services:
     working_dir: /app
     command: sh -c "uv sync && uv run --no-sync uvicorn backend.api:app --host 0.0.0.0 --port 8000 --reload"
     environment:
-      KEYCLOAK_ISSUER: http://localhost:8080/realms/microsift
+      KEYCLOAK_ISSUER: http://auth.localhost:8088/realms/microsift
       KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/microsift/protocol/openid-connect/certs
       KEYCLOAK_AUDIENCE: microsift-api
     volumes:
       - ./Backend:/app
       - backend-venv:/app/.venv
-    ports:
-      - "127.0.0.1:8000:8000"
 
 volumes:
   microsift-postgres-data:

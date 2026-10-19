@@ -7,7 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jwt import PyJWKClient
 from jwt.exceptions import PyJWKClientError
 
-issuer = os.getenv("KEYCLOAK_ISSUER", "http://localhost:8080/realms/microsift")
+issuer = os.getenv("KEYCLOAK_ISSUER", "http://auth.localhost:8088/realms/microsift")
 jwks_url = os.getenv(
     "KEYCLOAK_JWKS_URL",
     "http://keycloak:8080/realms/microsift/protocol/openid-connect/certs",

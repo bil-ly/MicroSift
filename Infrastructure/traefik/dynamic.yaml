@@ -1,0 +1,28 @@
+http:
+  routers:
+    api:
+      entryPoints: [web]
+      rule: "Host(`app.localhost`) && PathPrefix(`/api`)"
+      priority: 100
+      service: backend
+    frontend:
+      entryPoints: [web]
+      rule: "Host(`app.localhost`)"
+      service: frontend
+    keycloak:
+      entryPoints: [web]
+      rule: "Host(`auth.localhost`)"
+      service: keycloak
+  services:
+    backend:
+      loadBalancer:
+        servers:
+          - url: http://backend:8000
+    frontend:
+      loadBalancer:
+        servers:
+          - url: http://frontend:5173
+    keycloak:
+      loadBalancer:
+        servers:
+          - url: http://keycloak:8080
