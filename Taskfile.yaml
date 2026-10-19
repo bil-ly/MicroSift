@@ -1,0 +1,22 @@
+version: '3'
+
+tasks:
+  up:
+    desc: Start local services
+    cmds:
+      - docker compose up -d
+
+  down:
+    desc: Stop local services without deleting data
+    cmds:
+      - docker compose down
+
+  status:
+    desc: Show service status
+    cmds:
+      - docker compose ps
+
+  logs:
+    desc: Follow Keycloak logs
+    cmds:
+      - docker compose logs -f keycloak
