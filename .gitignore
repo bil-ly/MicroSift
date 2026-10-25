@@ -19,3 +19,5 @@ DAC/
 /KeycloakTheme/dist_keycloak/
 /KeycloakTheme/.env
 /KeycloakTheme/.env.*
+microsift-config
+.terraform.lock.hcl
