@@ -9,3 +9,9 @@ variable "ingress_http_port" {
   type        = number
   default     = 8088
 }
+
+variable "mailpit_http_port" {
+  description = "Host port mapped to the Mailpit web UI"
+  type        = number
+  default     = 8025
+}
