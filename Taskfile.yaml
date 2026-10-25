@@ -2,19 +2,22 @@ version: '3'
 
 tasks:
   up:
-    desc: Start all local services
+    desc: Start all local services and the local Kubernetes cluster
     cmds:
       - docker compose up -d
+      - task: k8s:cluster:up
 
   down:
-    desc: Stop all local services without deleting data
+    desc: Stop all local services and destroy the local Kubernetes cluster
     cmds:
       - docker compose down
+      - task: k8s:cluster:down
 
   status:
-    desc: Show service status
+    desc: Show service and cluster status
     cmds:
       - docker compose ps
+      - kubectl get nodes -o wide
 
   logs:
     desc: Follow all service logs
@@ -33,7 +36,7 @@ tasks:
     desc: Create the local kind Kubernetes cluster via Terraform
     dir: Infrastructure/terraform/local
     cmds:
-      - terraform init -upgrade=false
+      - test -d .terraform || terraform init
       - systemd-run --scope --user -p "Delegate=yes" env KIND_EXPERIMENTAL_PROVIDER=podman terraform apply -auto-approve
 
   k8s:cluster:down:
@@ -41,9 +44,4 @@ tasks:
     dir: Infrastructure/terraform/local
     cmds:
       - env KIND_EXPERIMENTAL_PROVIDER=podman terraform destroy -auto-approve
-
-  k8s:cluster:status:
-    desc: Show Kubernetes cluster nodes and system pods
-    cmds:
-      - kubectl get nodes -o wide
-      - kubectl get pods -A
+      - rm -f microsift-config
