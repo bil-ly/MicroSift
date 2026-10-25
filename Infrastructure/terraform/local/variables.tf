@@ -7,11 +7,11 @@ variable "cluster_name" {
 variable "ingress_http_port" {
   description = "Host port mapped to the cluster Ingress controller"
   type        = number
-  default     = 8088
+  default     = 8089
 }
 
 variable "mailpit_http_port" {
   description = "Host port mapped to the Mailpit web UI"
   type        = number
-  default     = 8025
+  default     = 8026
 }
