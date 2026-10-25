@@ -28,3 +28,22 @@ tasks:
       - docker compose exec -T frontend npm run lint
       - docker compose exec -T frontend npm test -- --run
       - docker compose exec -T frontend npm run build
+
+  k8s:cluster:up:
+    desc: Create the local kind Kubernetes cluster via Terraform
+    dir: Infrastructure/terraform/local
+    cmds:
+      - terraform init -upgrade=false
+      - systemd-run --scope --user -p "Delegate=yes" env KIND_EXPERIMENTAL_PROVIDER=podman terraform apply -auto-approve
+
+  k8s:cluster:down:
+    desc: Destroy the local kind Kubernetes cluster via Terraform
+    dir: Infrastructure/terraform/local
+    cmds:
+      - env KIND_EXPERIMENTAL_PROVIDER=podman terraform destroy -auto-approve
+
+  k8s:cluster:status:
+    desc: Show Kubernetes cluster nodes and system pods
+    cmds:
+      - kubectl get nodes -o wide
+      - kubectl get pods -A
