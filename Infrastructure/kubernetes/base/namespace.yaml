@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: microsift
+  labels:
+    app.kubernetes.io/name: microsift
+    app.kubernetes.io/part-of: microsift
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
