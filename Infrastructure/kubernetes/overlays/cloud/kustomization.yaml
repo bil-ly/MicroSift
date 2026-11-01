@@ -1,0 +1,50 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: microsift
+
+resources:
+  - ../../base
+
+replicas:
+  - name: backend
+    count: 2
+  - name: frontend
+    count: 2
+
+images:
+  - name: microsift-backend
+    newName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/microsift-backend
+    newTag: v1.0.0
+  - name: microsift-frontend
+    newName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/microsift-frontend
+    newTag: v1.0.0
+  - name: microsift-keycloak
+    newName: 000000000000.dkr.ecr.eu-central-1.amazonaws.com/microsift-keycloak
+    newTag: v1.0.0
+
+patches:
+  - target:
+      kind: ConfigMap
+      name: microsift-config
+    patch: |-
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: microsift-config
+      data:
+        KC_HOSTNAME: "https://auth.microsift.example.com"
+        KEYCLOAK_ISSUER: "https://auth.microsift.example.com/realms/microsift"
+        FRONTEND_URL: "https://app.microsift.example.com"
+        SMTP_HOST: "email-smtp.eu-central-1.amazonaws.com"
+        SMTP_PORT: "587"
+  - target:
+      kind: Ingress
+      name: microsift-ingress
+    patch: |-
+      - op: replace
+        path: /spec/rules/0/host
+        value: app.microsift.example.com
+      - op: replace
+        path: /spec/rules/1/host
+        value: auth.microsift.example.com
